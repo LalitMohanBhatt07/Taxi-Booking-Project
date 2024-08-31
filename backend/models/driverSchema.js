@@ -7,12 +7,15 @@ const DriverSchema=new mongoose.Schema({
         required:true
     },
     vehicle:{
-        type:String,
+        type:mongoose.Schema.Types.ObjectId,
+        ref:'Vehicle',
         required:true,
     },
     rating:{
         type:Number,
-        default:0
+        default:0,
+        min: [0, 'Rating cannot be less than 0.'],
+        max: [5, 'Rating cannot be more than 5.']
     },
     isAvailable:{
         type:Boolean,
