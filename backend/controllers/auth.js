@@ -3,6 +3,7 @@ const OTP = require("../models/OTP");
 const otpGenerator = require("otp-generator");
 const Customer = require("../models/customerSchema");
 const bcrypt = require("bcrypt");
+require('dotenv').config()
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^[0-9]{10}$/;
@@ -287,3 +288,52 @@ exports.signUpDriver = async (req, res) => {
     });
   }
 };
+
+exports.loginUser=async(req,res)=>{
+try{
+  const {email,password}=req.body;
+
+  const user=await User.findOne({email})
+  if(!user){
+    return res.status(401).json({
+      success: false,
+      message: "Invalid email",
+    });
+  }
+
+  const isPasswordValid=await bcrypt.compare(password,user.password);
+
+  if (!isPasswordValid) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid password",
+    });
+  }
+
+  const token=jwt.sign(
+    {userId:user._id,role:user.role},
+    process.env.JWT_SECRET,
+    {expiresIn:'24h'}
+  )
+
+  res.cookie('token',token,{
+    expires:new Date(Date.now()+3*24*60*1000),
+    httpOnly:true
+  })
+
+  res.status(200).json({
+    success: true,
+    message: "Logged in successfully",
+    token,
+  });
+
+  }
+catch(err){
+  console.error("Error during login process: ", err);
+  res.status(500).json({
+    success: false,
+    message: "An error occurred during login. Please try again later.",
+  });
+}
+}
+
