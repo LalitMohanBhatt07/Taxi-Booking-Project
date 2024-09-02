@@ -3,7 +3,7 @@ const OTP = require("../models/OTP");
 const otpGenerator = require("otp-generator");
 const Customer = require("../models/customerSchema");
 const bcrypt = require("bcrypt");
-require('dotenv').config()
+require("dotenv").config();
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRegex = /^[0-9]{10}$/;
@@ -112,7 +112,7 @@ exports.signUpCustomer = async (req, res) => {
     }
 
     const now = new Date();
-    if (now > existingOTP.createdAt + 5 * 60 * 1000) {
+    if (now > new Date(existingOTP.createdAt).getTime() + 5 * 60 * 1000) {
       await OTP.deleteOne({ email });
       return res.status(400).json({
         success: false,
@@ -289,69 +289,133 @@ exports.signUpDriver = async (req, res) => {
   }
 };
 
-exports.loginUser=async(req,res)=>{
-try{
-  const {email,password}=req.body;
-
-  const user=await User.findOne({email})
-  if(!user){
-    return res.status(401).json({
-      success: false,
-      message: "Invalid email",
-    });
-  }
-
-  const isPasswordValid=await bcrypt.compare(password,user.password);
-
-  if (!isPasswordValid) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid password",
-    });
-  }
-
-  const token=jwt.sign(
-    {userId:user._id,role:user.role},
-    process.env.JWT_SECRET,
-    {expiresIn:'24h'}
-  )
-
-  res.cookie('token',token,{
-    expires:new Date(Date.now()+3*24*60*1000),
-    httpOnly:true
-  })
-
-  res.status(200).json({
-    success: true,
-    message: "Logged in successfully",
-    token,
-  });
-
-  }
-catch(err){
-  console.error("Error during login process: ", err);
-  res.status(500).json({
-    success: false,
-    message: "An error occurred during login. Please try again later.",
-  });
-}
-}
-
-exports.logoutUser=async(req,res)=>{
+exports.loginUser = async (req, res) => {
   try {
-    res.cookie('token', '', { expires: new Date(0), httpOnly: true });
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email",
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password",
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    res.cookie("token", token, {
+      expires: new Date(Date.now() + 3 * 24 * 60 * 1000),
+      httpOnly: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Logged in successfully",
+      token,
+    });
+  } catch (err) {
+    console.error("Error during login process: ", err);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred during login. Please try again later.",
+    });
+  }
+};
+
+exports.logoutUser = async (req, res) => {
+  try {
+    res.cookie("token", "", { expires: new Date(0), httpOnly: true });
 
     res.status(200).json({
       success: true,
       message: "Logged out successfully",
     });
   } catch (err) {
-
     console.error("Error during logout process: ", err);
     res.status(500).json({
       success: false,
       message: "An error occurred during logout. Please try again later.",
     });
   }
-}
+};
 
+exports.resetPassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Old password, new password, and confirmation password are required",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password and confirmation password do not match",
+      });
+    }
+
+    const userId = await req.user.userId;
+
+    const userDetails = await User.findById(userId);
+
+    const isPasswordMatch = await bcrypt.compare(
+      oldPassword,
+      userDetails.password
+    );
+
+    if (!isPasswordMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "The old password is incorrect",
+      });
+    }
+
+    const encryptedPassword = await bcrypt.hash(newPassword, 10);
+
+    const updatedUserDetails = await User.findByIdAndUpdate(
+      req.user.userId,
+      { password: encryptedPassword },
+      { new: true }
+    );
+
+    const emailResponse = await mailSender(
+      updatedUserDetails.email,
+      "Password for your account has been updated",
+      `Dear ${userDetails.name},
+
+Your password has been successfully updated. If you did not make this change, please contact our support team immediately.
+
+Best regards,
+The Support Team`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully.",
+    });
+  } catch (err) {
+    console.error("Error during password reset process:", err);
+    res.status(500).json({
+      success: false,
+      message:
+        "An error occurred during password reset. Please try again later.",
+    });
+  }
+};
