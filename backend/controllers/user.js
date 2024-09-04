@@ -1,5 +1,6 @@
 const User=require('../models/userSchema')
 const Driver=require('../models/driverSchema')
+const Customer=require('../models/customerSchema')
 
 exports.getUserProfile=async(req,res)=>{
     try{
@@ -136,5 +137,23 @@ exports.getAllDrivers=async(req,res)=>{
     });
   }
   
-  
+}
+
+exports.getAllCustomers=async(req,res)=>{
+  try{
+    const customers = await Customer.find()
+      .populate('user', 'name email phoneNumber');
+
+      res.status(200).json({
+        success: true,
+        data: customers,
+      });
+  }
+  catch(err){
+    console.error("Error retrieving customers: ", err);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching customers. Please try again later.",
+    });
+  }
 }
