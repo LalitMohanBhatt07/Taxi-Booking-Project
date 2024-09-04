@@ -3,6 +3,7 @@ const OTP = require("../models/OTP");
 const otpGenerator = require("otp-generator");
 const Customer = require("../models/customerSchema");
 const bcrypt = require("bcrypt");
+const mailSender = require("../utils/mailSender");
 require("dotenv").config();
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -419,3 +420,49 @@ The Support Team`
     });
   }
 };
+
+exports.forgotPasswordToken=async(req,res)=>{
+  try{
+    const email=req.body.email;
+
+    const user=await User.findOne({email:email})
+    if(!user){
+      return res.json({
+        success:false,
+        message:"Your Email is not registered with us !"
+      })
+    }
+
+    const token=crypto.randomUUID()
+
+    const updatedDetails=await User.findOneAndUpdate({
+      email:email
+    },{
+      token:token,
+      resetPasswordExpires:Date.now()+5*60*1000
+    },{
+      new:true
+    })
+
+    console.log("updated details : ",updatedDetails)
+
+    const url=`http://localhost:5173/reset-password/${token}`
+
+    await mailSender(email,'Password Reset Link',`Password reset Link : ${url}`)
+
+    return res.json({
+      success:true,
+      message:"Email send successfully . Please check email and change password"
+  })
+  }
+  catch(err){
+    console.log(err)
+    res.status(500).json({
+        success:false,
+        message:"Cannot send reset Password message",
+        error:err.message
+    })
+  }
+}
+
+

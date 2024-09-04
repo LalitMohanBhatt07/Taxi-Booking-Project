@@ -1,4 +1,5 @@
 const mongoose=require('mongoose')
+const { resetPassword } = require('../controllers/auth')
 
 const userSchema=new mongoose.Schema({
     name:{
@@ -23,6 +24,12 @@ const userSchema=new mongoose.Schema({
         type:String,
         enum:['driver','customer'],
         required:true
+    },
+    token:{
+        type:String
+    },
+    resetPasswordExpires:{
+        type:Date
     }
 })
 
