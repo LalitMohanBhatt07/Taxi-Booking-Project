@@ -421,48 +421,110 @@ The Support Team`
   }
 };
 
-exports.forgotPasswordToken=async(req,res)=>{
-  try{
-    const email=req.body.email;
+exports.forgotPasswordToken = async (req, res) => {
+  try {
+    const email = req.body.email;
 
-    const user=await User.findOne({email:email})
-    if(!user){
+    const user = await User.findOne({ email: email });
+    if (!user) {
       return res.json({
-        success:false,
-        message:"Your Email is not registered with us !"
-      })
+        success: false,
+        message: "Your Email is not registered with us !",
+      });
     }
 
-    const token=crypto.randomUUID()
+    const token = crypto.randomUUID();
 
-    const updatedDetails=await User.findOneAndUpdate({
-      email:email
-    },{
-      token:token,
-      resetPasswordExpires:Date.now()+5*60*1000
-    },{
-      new:true
-    })
+    const updatedDetails = await User.findOneAndUpdate(
+      {
+        email: email,
+      },
+      {
+        token: token,
+        resetPasswordExpires: Date.now() + 5 * 60 * 1000,
+      },
+      {
+        new: true,
+      }
+    );
 
-    console.log("updated details : ",updatedDetails)
+    console.log("updated details : ", updatedDetails);
 
-    const url=`http://localhost:5173/reset-password/${token}`
+    const url = `http://localhost:5173/reset-password/${token}`;
 
-    await mailSender(email,'Password Reset Link',`Password reset Link : ${url}`)
+    await mailSender(
+      email,
+      "Password Reset Link",
+      `Password reset Link : ${url}`
+    );
 
     return res.json({
-      success:true,
-      message:"Email send successfully . Please check email and change password"
-  })
-  }
-  catch(err){
-    console.log(err)
+      success: true,
+      message:
+        "Email send successfully . Please check email and change password",
+    });
+  } catch (err) {
+    console.log(err);
     res.status(500).json({
-        success:false,
-        message:"Cannot send reset Password message",
-        error:err.message
+      success: false,
+      message: "Cannot send reset Password message",
+      error: err.message,
+    });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { password, confirmPassword, token } = req.body;
+
+    if (password !== confirmPassword) {
+      return res.json({
+        success: false,
+        message: "Password not matching",
+      });
+    }
+
+    const userDetails = await User.find({ token: token });
+
+    if (!userDetails) {
+      return res.json({
+        success: false,
+        message: "Token Invalid",
+      });
+    }
+
+    console.log("User Details for resetPassword", userDetails);
+
+    if(userDetails.resetPasswordExpires<Date.now()){
+      return res.json({
+          success:false,
+          message:"Token is Expired . Please regenerate your token"
+      })
+
+      const hashedPassword=await bcrypt.hash(password,10)
+
+      console.log("hashedPassword",hashedPassword)
+
+      const updated=await User.findOneAndUpdate(
+        { token: token },
+        { password: hashedPassword },
+        { new: true },
+      );
+
+      console.log("updated details: ",updated)
+
+      return res.status(200).json({
+        updated,
+        success:true,
+        message:"Password reset successful"
     })
   }
-}
-
-
+  } catch (err) {
+    console.log(err)
+    res.status(500).json({
+        error:err,
+        message:false,
+        message:"Cannot Reset Password"
+    })
+  }
+};
