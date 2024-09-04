@@ -1,4 +1,5 @@
 const User=require('../models/userSchema')
+const Driver=require('../models/driverSchema')
 
 exports.getUserProfile=async(req,res)=>{
     try{
@@ -115,4 +116,25 @@ exports.getAllUsers=async(req,res)=>{
       message: "An error occurred while fetching users",
     });
   }
+}
+
+exports.getAllDrivers=async(req,res)=>{
+  try{
+    const drivers=await Driver.find().populate('user','name email phoneNumber')
+    .populate('vehicle','make model year licensePlate')
+
+    res.status(200).json({
+      success: true,
+      data: drivers,
+    });
+  }
+  catch (err) {
+    console.error("Error retrieving drivers: ", err);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching drivers. Please try again later.",
+    });
+  }
+  
+  
 }
