@@ -78,3 +78,41 @@ exports.updateUserProfile=async(req,res)=>{
         });
       }
 }
+
+exports.deleteUserAccount=async(req,res)=>{
+  try{
+    const userId=req.user.userId;
+
+    await User.findByIdAndDelete(userId)
+
+    res.status(200).json({
+      success: true,
+      message: "User account deleted successfully",
+    });
+  }
+  catch (err) {
+    console.error("Error deleting user account: ", err);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while deleting account",
+    });
+  }
+}
+
+exports.getAllUsers=async(req,res)=>{
+  try{
+    const users=await User.find().select('-password')
+
+    res.status(200).json({
+      success: true,
+      data: users,
+    });
+  }
+  catch(err){
+    console.error("Error fetching users: ", err);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while fetching users",
+    });
+  }
+}
